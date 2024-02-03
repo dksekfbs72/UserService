@@ -1,12 +1,14 @@
 package com.userservice.user.controller;
 
 import com.userservice.global.dto.WebResponseData;
-import com.userservice.user.domain.dto.*;
+import com.userservice.user.domain.dto.LoginForm;
+import com.userservice.user.domain.dto.SingUpForm;
+import com.userservice.user.domain.dto.UpdateInfoForm;
+import com.userservice.user.domain.dto.UpdatePasswordForm;
 import com.userservice.user.domain.entity.User;
 import com.userservice.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,45 +58,5 @@ public class UserController {
     public WebResponseData<String> updatePassword(@RequestBody UpdatePasswordForm updatePasswordForm, Authentication auth, HttpServletRequest request) {
         userService.logout(request);
         return WebResponseData.ok(userService.updatePassword(updatePasswordForm, auth));
-    }
-
-    @GetMapping("/feed")
-    public WebResponseData<Page<FeedDto>> getMyFeed(
-            Authentication auth,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return WebResponseData.ok(userService.getMyFeed(auth, page, size));
-    }
-
-    @PostMapping("/post")
-    public WebResponseData<String> writePost(
-            Authentication auth,
-            @RequestBody PostForm postForm
-    ) {
-      return WebResponseData.ok(userService.writePost(auth, postForm));
-    }
-
-    @PostMapping("/likePost")
-    public WebResponseData<String> likePost(
-            Authentication auth,
-            @RequestParam long postId
-    ) {
-        return WebResponseData.ok(userService.likePost(auth, postId));
-    }
-    @PostMapping("/likeComment")
-    public WebResponseData<String> likeComment(
-            Authentication auth,
-            @RequestParam long commentId
-    ) {
-        return WebResponseData.ok(userService.likeComment(auth, commentId));
-    }
-
-    @PostMapping("/comment")
-    public WebResponseData<String> writeComment(
-            Authentication auth,
-            @RequestParam long postId,
-            @RequestBody CommentForm commentForm
-    ) {
-        return WebResponseData.ok(userService.writeComment(auth, postId, commentForm));
     }
 }

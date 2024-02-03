@@ -4,22 +4,20 @@ import com.userservice.global.config.jwt.JwtTokenUtil;
 import com.userservice.global.email.MailComponents;
 import com.userservice.global.exception.UserException;
 import com.userservice.global.type.ErrorCode;
-import com.userservice.user.domain.dto.*;
-import com.userservice.user.domain.entity.*;
-import com.userservice.user.domain.type.FeedType;
-import com.userservice.user.repository.*;
+import com.userservice.user.domain.dto.LoginForm;
+import com.userservice.user.domain.dto.SingUpForm;
+import com.userservice.user.domain.dto.UpdateInfoForm;
+import com.userservice.user.domain.dto.UpdatePasswordForm;
+import com.userservice.user.domain.entity.User;
+import com.userservice.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -33,11 +31,6 @@ public class UserService {
     private final BCryptPasswordEncoder encoder;
     private final MailComponents mailComponents;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final FollowRepository followRepository;
-    private final PostRepository postRepository;
-    private final LikeRepository likeRepository;
-    private final CommentRepository commentRepository;
-    private final ActivityRepository activityRepository;
 
     public String signUp(SingUpForm req) {
         // loginId 중복 체크
@@ -96,7 +89,7 @@ public class UserService {
     public String emailAuth(String emailKey) {
         Optional<User> optionalUser = userRepository.findByEmailKey(emailKey);
         if (optionalUser.isEmpty()) {
-            throw new RuntimeException();
+            throw new UserException(ErrorCode.NOT_FOUND_USER);
         }
         User user = optionalUser.get();
         user.setEmailCert(true);
@@ -132,74 +125,10 @@ public class UserService {
 
         return "비밀번호 수정 성공";
     }
-
-    public Page<FeedDto> getMyFeed(Authentication auth, int page, int size) {
-        User user = whoIAm(auth);
-        List<User> friends = new ArrayList<>();
-        friends.add(user);
-        Optional<List<Long>> following = followRepository.findUsersByUserId(user.getId());
-        Optional<List<Long>> follower = followRepository.findUserByFollowId(user.getId());
-        following.ifPresent(longs -> friends.addAll(userRepository.findAllById(longs)));
-        follower.ifPresent(longs -> friends.addAll(userRepository.findAllById(longs)));
-        friends.add(user);
-
-
-        Page<Activity> activityPage = activityRepository.findAllByUserInOrderByCreateAtDesc(friends, PageRequest.of(page, size));
-
-        return FeedDto.toPage(activityPage);
-    }
-
-    public String writePost(Authentication auth, PostForm postForm) {
-        User user = whoIAm(auth);
-        long postId = postRepository.save(postForm.toEntity(user)).getId();
-        activityRepository.save(Activity.builder()
-                        .feedType(FeedType.POST)
-                        .title(postForm.getTitle())
-                        .user(user)
-                        .postId(postId)
-                .build());
-        return "성공";
-    }
-
-    public String likePost(Authentication auth, long postId) {
-        User user = whoIAm(auth);
-        Post post = getThisPost(postId);
-        activityRepository.save(Activity.builder()
-                        .feedType(FeedType.LIKE)
-                        .user(user)
-                        .to(post.getUserName())
-                        .postId(post.getId())
-                .build());
-        likeRepository.save(LikeTable.builder()
-                .user(user)
-                .post(post)
-                .build());
-        return "성공";
-    }
-
-    public String likeComment(Authentication auth, long commentId) {
-        User user = whoIAm(auth);
-        Optional<Comment> optionalComment = commentRepository.findById(commentId);
-        if (optionalComment.isEmpty()) {
-            throw new UserException(ErrorCode.NOT_FOUND_POST);
-        }
-        Comment comment = optionalComment.get();
-        activityRepository.save(Activity.builder()
-                .feedType(FeedType.LIKE)
-                .user(user)
-                .to(comment.getUser().getName())
-                .commentId(comment.getId())
-                .build());
-        likeRepository.save(LikeTable.builder()
-                .user(user)
-                .comment(comment)
-                .build());
-        return "성공";
-    }
     public User whoIAm(Authentication auth) {
         Optional<User> optionalUser = userRepository.findByEmail(auth.getName());
         if (optionalUser.isEmpty()) {
-            throw new RuntimeException();
+            throw new UserException(ErrorCode.NOT_FOUND_USER);
         }
         return optionalUser.get();
     }
@@ -210,13 +139,6 @@ public class UserService {
         Optional<User> optionalUser = userRepository.findByEmail(email);
         return optionalUser.orElse(null);
     }
-    public Post getThisPost(long postId) {
-        Optional<Post> optionalPost = postRepository.findById(postId);
-        if (optionalPost.isEmpty()) {
-            throw new UserException(ErrorCode.NOT_FOUND_POST);
-        }
-        return optionalPost.get();
-    }
 
     public boolean checkLoginIdDuplicate(String email) {
         return userRepository.existsByEmail(email);
@@ -224,18 +146,5 @@ public class UserService {
 
     public boolean checkNicknameDuplicate(String name) {
         return userRepository.existsByName(name);
-    }
-
-    public String writeComment(Authentication auth, long postId, CommentForm commentForm) {
-        User user = whoIAm(auth);
-        Post post = getThisPost(postId);
-        activityRepository.save(Activity.builder()
-                        .feedType(FeedType.COMMENT)
-                        .user(user)
-                        .to(post.getUserName())
-                        .postId(post.getId())
-                        .commentId(commentRepository.save(commentForm.toEntity(user, post)).getId())
-                .build());
-        return "성공";
     }
 }
