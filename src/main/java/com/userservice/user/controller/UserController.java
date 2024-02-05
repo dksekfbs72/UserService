@@ -1,11 +1,7 @@
 package com.userservice.user.controller;
 
 import com.userservice.global.dto.WebResponseData;
-import com.userservice.user.domain.dto.LoginForm;
-import com.userservice.user.domain.dto.SingUpForm;
-import com.userservice.user.domain.dto.UpdateInfoForm;
-import com.userservice.user.domain.dto.UpdatePasswordForm;
-import com.userservice.user.domain.entity.User;
+import com.userservice.user.domain.dto.*;
 import com.userservice.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +33,9 @@ public class UserController {
     }
 
     @GetMapping("/info")
-    public String userInfo(Authentication auth) {
-        User loginUser = userService.getLoginUserByLoginId(auth.getName());
+    public UserDto userInfo(Authentication auth) {
 
-        return String.format("loginId : %s\nnickname : %s\nrole : %s",
-                loginUser.getEmail(), loginUser.getName(), loginUser.getRole().name());
+        return userService.getUserInfo(auth);
     }
 
     @DeleteMapping("/logout")
@@ -59,4 +53,15 @@ public class UserController {
         userService.logout(request);
         return WebResponseData.ok(userService.updatePassword(updatePasswordForm, auth));
     }
+
+    @GetMapping("/getUserName")
+    public String getUserName(@RequestParam Long userId) {
+        return userService.getUserName(userId);
+    }
+
+    @GetMapping("/infoForFollow")
+    public UserFollowDto getInfoForFollow(Authentication auth, @RequestParam Long followId) {
+        return userService.getInfoForFollow(auth, followId);
+    }
+
 }

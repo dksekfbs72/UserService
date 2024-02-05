@@ -4,10 +4,7 @@ import com.userservice.global.config.jwt.JwtTokenUtil;
 import com.userservice.global.email.MailComponents;
 import com.userservice.global.exception.UserException;
 import com.userservice.global.type.ErrorCode;
-import com.userservice.user.domain.dto.LoginForm;
-import com.userservice.user.domain.dto.SingUpForm;
-import com.userservice.user.domain.dto.UpdateInfoForm;
-import com.userservice.user.domain.dto.UpdatePasswordForm;
+import com.userservice.user.domain.dto.*;
 import com.userservice.user.domain.entity.User;
 import com.userservice.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,12 +43,12 @@ public class UserService {
             throw new UserException(ErrorCode.PASSWORD_CHECK_EXCEPTION);
         }
         String uuid = UUID.randomUUID().toString();
-        userRepository.save(req.toEntity(encoder.encode(req.getPassword()), uuid));
         mailComponents.sendMail(req.getEmail(),
                 "[예약 구매 서비스] 회원 가입을 축하드립니다.",
                     "<p>안녕하세요. 예약 구매 서비스 회원 가입을 축하드립니다.<p>" +
                         "<p>아래 링크를 클릭하시면 이메일 인증이 완료됩니다.<p>" +
                         "<a href='http://localhost:8080/user/emailAuth?emailKey=" + uuid + "'>회원가입 완료</a>");
+        userRepository.save(req.toEntity(encoder.encode(req.getPassword()), uuid));
         return "회원가입 성공";
     }
 
@@ -80,7 +77,6 @@ public class UserService {
 
     public String logout(HttpServletRequest request) {
         String token = request.getHeader(HttpHeaders.AUTHORIZATION).split(" ")[1];
-        //User loginUser = userRepository.findByEmail(JwtTokenUtil.getLoginId(token, secretKey)).get();
         long expiration = JwtTokenUtil.getExpiration(token, getenv().get("SECRET_KEY")).getTime();
         redisTemplate.opsForValue().set(token, "logout", expiration, TimeUnit.SECONDS);
         return "로그아웃 성공";
@@ -146,5 +142,36 @@ public class UserService {
 
     public boolean checkNicknameDuplicate(String name) {
         return userRepository.existsByName(name);
+    }
+
+    public UserDto getUserInfo(Authentication auth) {
+        User loginUser = getLoginUserByLoginId(auth.getName());
+        return UserDto.builder()
+                .id(loginUser.getId())
+                .name(loginUser.getName())
+                .email(loginUser.getEmail())
+                .build();
+    }
+
+    public String getUserName(Long userId) {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isEmpty()) {
+            throw new UserException(ErrorCode.NOT_FOUND_USER);
+        }
+        return optionalUser.get().getName();
+    }
+
+    public UserFollowDto getInfoForFollow(Authentication auth, Long followId) {
+        User user = whoIAm(auth);
+        Optional<User> follow = userRepository.findById(followId);
+        if (follow.isEmpty()){
+            throw new UserException(ErrorCode.NOT_FOUND_USER);
+        }
+        return UserFollowDto.builder()
+                .followUserName(follow.get().getName())
+                .email(user.getEmail())
+                .id(user.getId())
+                .name(user.getName())
+                .build();
     }
 }
